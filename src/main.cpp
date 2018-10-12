@@ -378,6 +378,7 @@ int main(int argc, char *argv[])
         loadType = ltDownloadAndRun;
         
     /* do a serial download */
+ tryUsingSerial:
     if (useSerial) {
         SerialInfo info; // needs to stay in scope as long as we're using port
         if (!(serialConnection = new SerialPropConnection)) {
@@ -413,8 +414,10 @@ int main(int argc, char *argv[])
         if (!ipaddr) {
             WiFiInfoList addrs;
             if (WiFiPropConnection::findModules(false, addrs, 1) != 0) {
-                nmessage(ERROR_WIFI_MODULE_DISCOVERY_FAILED);
-                return 1;
+	      //nmessage(ERROR_WIFI_MODULE_DISCOVERY_FAILED);
+	      //return 1;
+	      useSerial = true;
+	      goto tryUsingSerial;
             }
             if (addrs.size() == 0) {
                 nmessage(ERROR_NO_WIFI_MODULES_FOUND);
