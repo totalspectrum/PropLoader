@@ -420,8 +420,10 @@ int main(int argc, char *argv[])
 	      goto tryUsingSerial;
             }
             if (addrs.size() == 0) {
-                nmessage(ERROR_NO_WIFI_MODULES_FOUND);
-                return 1;
+	      useSerial = true;
+	      goto tryUsingSerial;
+	      //  nmessage(ERROR_NO_WIFI_MODULES_FOUND);
+              //  return 1;
             }
             const char *ipaddr2 = addrs.front().address();
             char *p;
