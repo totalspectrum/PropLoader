@@ -49,6 +49,7 @@ options:\n\
     -n <name>       set the name of a Parallax Wi-Fi module\n\
     -p <port>       serial port\n\
     -P              show all serial ports\n\
+    -q              during terminal display check for exit status from Propeller\n\
     -r              run program after downloading (useful with -e)\n\
     -R              reset the Propeller\n\
     -s              do a serial download\n\
@@ -94,6 +95,7 @@ int main(int argc, char *argv[])
     bool showModules = false;
     bool terminalMode = false;
     bool pstTerminalMode = false;
+    bool check_for_exit = false;
     const char *board = NULL;
     const char *subtype = NULL;
     const char *ipaddr = NULL;
@@ -231,6 +233,9 @@ int main(int argc, char *argv[])
             case 'P':   // show serial ports
                 showPorts = true;
                 break;
+	    case 'q':  // enable magic exit code
+	        check_for_exit = true;
+		break;
             case 'r':   // run program after loading
                 loadType |= ltDownloadAndRun;
                 break;
@@ -565,7 +570,7 @@ int main(int argc, char *argv[])
         }
         
         /* enter terminal mode */
-        if (connection->terminal(false, pstTerminalMode) != 0) {
+        if (connection->terminal(check_for_exit, pstTerminalMode) != 0) {
             nmessage(ERROR_FAILED_TO_ENTER_TERMINAL_MODE);
             return 1;
         }
