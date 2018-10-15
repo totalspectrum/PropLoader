@@ -31,6 +31,24 @@
   #define PORT_PREFIX ""
 #endif
 
+static bool prompt_before_exit = false;
+
+void promptexit(int status)
+{
+    int c;
+    if (prompt_before_exit)
+      {
+	fflush(stderr);
+	printf("Press return to continue...\n");
+	fflush(stdout);
+	for(;;) {
+	  c = getchar();
+	  if (c < 0 || c == '\n') break;
+	}
+      }
+    exit(status);
+}
+
 static void usage(const char *progname)
 {
 printf("\
@@ -46,6 +64,7 @@ options:\n\
     -f <file>       write a file to the SD card\n\
     -i <ip-addr>    IP address of the Parallax Wi-Fi module\n\
     -I <path>       add a directory to the include path\n\
+    -k              prompt before exiting due to an error\n\
     -n <name>       set the name of a Parallax Wi-Fi module\n\
     -p <port>       serial port\n\
     -P              show all serial ports\n\
@@ -78,7 +97,7 @@ Value expressions for -D can include:\n\
   rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false\n\
   an integer or two operands with a binary operator + - * / %% & | or unary + or -\n\
   or a parenthesized expression.\n", VERSION, progname);
-    exit(1);
+    promptexit(1);
 }
 
 static void ShowPorts(const char *prefix, bool check);
@@ -148,7 +167,7 @@ int main(int argc, char *argv[])
                         usage(argv[0]);
                     if (p2 - p > (int)sizeof(var) - 1) {
                         printf("error: variable name too long");
-                        return 1;
+                        promptexit(1);
                     }
                     strncpy(var, p, p2 - p);
                     var[p2 - p] = '\0';
@@ -185,6 +204,9 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
                 xbAddPath(p);
                 break;
+	    case 'k':
+	        prompt_before_exit = true;
+		break;
             case 'n':   // name a wifi module
                 if (argv[i][2])
                     name = &argv[i][2];
@@ -292,7 +314,7 @@ int main(int argc, char *argv[])
         nmessage(INFO_OPENING_FILE, file);
         if (!(image = Loader::readFile(file, &imageSize))) {
             nmessage(ERROR_CANT_OPEN_FILE, file);
-            return 1;
+            promptexit(1);
         }
         switch (PropImage::validate(image, imageSize)) {
         case PropImage::SUCCESS:
@@ -300,13 +322,13 @@ int main(int argc, char *argv[])
             break;
         case PropImage::IMAGE_TRUNCATED:
             nmessage(ERROR_FILE_TRUNCATED);
-            return 1;
+            promptexit(1);
         case PropImage::IMAGE_CORRUPTED:
             nmessage(ERROR_FILE_CORRUPTED);
-            return 1;
+            promptexit(1);
         default:
             nmessage(ERROR_INTERNAL_CODE_ERROR);
-            return 1;
+            promptexit(1);
         }
     }
        
@@ -335,7 +357,7 @@ int main(int argc, char *argv[])
         if ((p = strchr(board, ':')) != NULL) {
             if (p - board >= (int)sizeof(boardBuffer)) {
                 printf("error: board type name too long\n");
-                return 1;
+                promptexit(1);
             }
             strncpy(boardBuffer, board, p - board);
             boardBuffer[p - board] = '\0';
@@ -356,14 +378,14 @@ int main(int argc, char *argv[])
     /* setup for the selected board */
     if (!(config = ParseConfigurationFile(board))) {
         printf("error: can't find board configuration '%s'\n", board);
-        return 1;
+        promptexit(1);
     }
     
     /* select the subtype */
     if (subtype) {
         if (!(config = GetConfigSubtype(config, subtype))) {
             printf("error: can't find board configuration subtype '%s'\n", subtype);
-            return 1;
+            promptexit(1);
         }
     }
     
@@ -388,24 +410,24 @@ int main(int argc, char *argv[])
         SerialInfo info; // needs to stay in scope as long as we're using port
         if (!(serialConnection = new SerialPropConnection)) {
             nmessage(ERROR_INSUFFICIENT_MEMORY);
-            return 1;
+            promptexit(1);
         }
         if (!port) {
             SerialInfoList ports;
             if (SerialPropConnection::findPorts(PORT_PREFIX, true, ports) != 0) {
                 nmessage(ERROR_SERIAL_PORT_DISCOVERY_FAILED);
-                return 1;
+                promptexit(1);
             }
             if (ports.size() == 0) {
                 nmessage(ERROR_NO_SERIAL_PORTS_FOUND);
-                return 1;
+                promptexit(1);
             }
             info = ports.front();
             port = info.port();
         }
         if ((sts = serialConnection->open(port)) != 0) {
             nmessage(ERROR_UNABLE_TO_CONNECT_TO_PORT, port);
-            return 1;
+            promptexit(1);
         }
         connection = serialConnection;
     }
@@ -414,13 +436,13 @@ int main(int argc, char *argv[])
     else {
         if (!(wifiConnection = new WiFiPropConnection)) {
             nmessage(ERROR_INSUFFICIENT_MEMORY);
-            return 1;
+            promptexit(1);
         }
         if (!ipaddr) {
             WiFiInfoList addrs;
             if (WiFiPropConnection::findModules(false, addrs, 1) != 0) {
 	      //nmessage(ERROR_WIFI_MODULE_DISCOVERY_FAILED);
-	      //return 1;
+	      //promptexit(1);
 	      useSerial = true;
 	      goto tryUsingSerial;
             }
@@ -428,28 +450,28 @@ int main(int argc, char *argv[])
 	      useSerial = true;
 	      goto tryUsingSerial;
 	      //  nmessage(ERROR_NO_WIFI_MODULES_FOUND);
-              //  return 1;
+              //  promptexit(1);
             }
             const char *ipaddr2 = addrs.front().address();
             char *p;
             if (!(p = (char *)malloc(strlen(ipaddr2) + 1))) {
                 nmessage(ERROR_INSUFFICIENT_MEMORY);
-                return 1;
+                promptexit(1);
             }
             strcpy(p, ipaddr2);
             ipaddr = p;
         }
         if ((sts = wifiConnection->setAddress(ipaddr)) != 0) {
             nmessage(ERROR_INVALID_MODULE_ADDRESS, ipaddr);
-            return 1;
+            promptexit(1);
         }
         if (wifiConnection->getVersion() != 0) {
             nmessage(ERROR_UNABLE_TO_CONNECT_TO_MODULE, ipaddr);
-            return 1;
+            promptexit(1);
         }
         if ((sts = wifiConnection->checkVersion()) != 0) {
             nmessage(ERROR_WRONG_WIFI_MODULE_FIRMWARE, wifiConnection->version(), WIFI_REQUIRED_MAJOR_VERSION);
-            return 1;
+            promptexit(1);
         }
         connection = wifiConnection;
     }
@@ -467,7 +489,7 @@ int main(int argc, char *argv[])
     if ((p = GetConfigField(config, "reset")) != NULL) {
         if (connection->setResetMethod(p) != 0) {
             nmessage(ERROR_NO_RESET_METHOD, p);
-            return 1;
+            promptexit(1);
         }
     }
         
@@ -475,7 +497,7 @@ int main(int argc, char *argv[])
     if (reset) {
         if (connection->generateResetSignal() != 0) {
             printf("error: failed to reset Propeller\n");
-            return 1;
+            promptexit(1);
         }
     }
     
@@ -483,7 +505,7 @@ int main(int argc, char *argv[])
     if (name) {
         if (!wifiConnection) {
             nmessage(ERROR_CAN_ONLY_NAME_WIFI_MODULES);
-            return 1;
+            promptexit(1);
         }
         
 #define isAllowed(ch)   (isupper(ch) || islower(ch) || isdigit(ch) || (ch) == '-')
@@ -520,7 +542,7 @@ int main(int argc, char *argv[])
         /* if we deleted every character then this is an invalid name */
         if (!cleanName[0]) {
             nmessage(ERROR_INVALID_MODULE_NAME);
-            return 1;
+            promptexit(1);
         }
         
         /* show the clean name if it is different from what the user requested */
@@ -529,7 +551,7 @@ int main(int argc, char *argv[])
             
         if (wifiConnection->setName(cleanName) != 0) {
             nmessage(ERROR_FAILED_TO_SET_MODULE_NAME);
-            return 1;
+            promptexit(1);
         }
     }
     
@@ -538,7 +560,7 @@ int main(int argc, char *argv[])
         nmessage(INFO_WRITING_TO_SD_CARD, file);
         if (WriteFileToSDCard(config, connection, file, file) != 0) {
             nmessage(ERROR_FAILED_TO_WRITE_TO_SD_CARD, file);
-            return 1;
+            promptexit(1);
         }
     }
     
@@ -547,7 +569,7 @@ int main(int argc, char *argv[])
         loader.setConnection(connection);
         if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
             nmessage(ERROR_DOWNLOAD_FAILED);
-            return 1;
+            promptexit(1);
         }
         nmessage(INFO_DOWNLOAD_SUCCESSFUL);
     }
@@ -555,7 +577,7 @@ int main(int argc, char *argv[])
     /* set the baud rate used by the program */
     if (connection->setBaudRate(connection->programBaudRate()) != 0) {
         nmessage(ERROR_FAILED_TO_SET_BAUD_RATE);
-        return 1;
+        promptexit(1);
     }
     
     /* enter terminal mode */
@@ -566,13 +588,13 @@ int main(int argc, char *argv[])
         if (!connection->isOpen() && connection->connect() != 0) {
             message("Can't open connection to target");
             nmessage(ERROR_FAILED_TO_ENTER_TERMINAL_MODE);
-            return 1;
+            promptexit(1);
         }
         
         /* enter terminal mode */
         if (connection->terminal(check_for_exit, pstTerminalMode) != 0) {
             nmessage(ERROR_FAILED_TO_ENTER_TERMINAL_MODE);
-            return 1;
+            promptexit(1);
         }
     }
     
