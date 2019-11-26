@@ -149,14 +149,10 @@ $(OBJDIR)/%.o:	$(OBJDIR)/%.c
 #	$(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $<
 #	$(BINDIR)/split$(EXT) $(OBJDIR)/IP_Loader.binary $(OBJDIR)/IP_Loader.h
 
-# This is the first workaround.
-#$(OBJDIR)/IP_Loader.h:   $(SPINDIR)/IP_Loader.spin $(BINDIR)/split$(EXT)
-#	cd $(dir $<); $(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $(notdir $<)
-#	$(BINDIR)/split$(EXT) $(OBJDIR)/IP_Loader.binary $(OBJDIR)/IP_Loader.h
-
-# Here's an even simpler work-around
-$(OBJDIR)/IP_Loader.h: prebuilt/IP_Loader.h
-	cp prebuilt/IP_Loader.h $(OBJDIR)/IP_Loader.h
+# This is the workaround.
+$(OBJDIR)/IP_Loader.h:   $(SPINDIR)/IP_Loader.spin $(BINDIR)/split$(EXT)
+	cd $(dir $<); $(SPINCMP) -o $(OBJDIR)/IP_Loader.binary $(notdir $<)
+	$(BINDIR)/split$(EXT) $(OBJDIR)/IP_Loader.binary $(OBJDIR)/IP_Loader.h
 
 setup:	$(BUILD)/blink-slow.binary
 	propeller-load -e $(BUILD)/blink-slow.binary
@@ -175,16 +171,16 @@ Ebig:	$(BINDIR)/proploader$(EXT) $(BUILD)/toggle.elf
 
 P:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -P
-	
+
 P0:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -P0
-	
+
 X:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -X
-	
+
 X0:	$(BINDIR)/proploader$(EXT)
 	$(BINDIR)/proploader$(EXT) -X0
-	
+
 $(OBJDIR)/%.o:	$(SRCDIR)/%.c $(HDRS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
