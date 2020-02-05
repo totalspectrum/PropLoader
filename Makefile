@@ -25,23 +25,24 @@ TOUCH=touch
 RM=rm -r -f
 
 ifeq ($(CROSS),)
-  PREFIX=
+  CC=gcc
+  CPP=g++
+else ifeq ($(CROSS),win32)
+  CC=i686-w64-mingw32-gcc
+  CPP=i686-w64-mingw32-g++
+  OS=msys
+else ifeq ($(CROSS),macosx)
+  CC=o64-clang
+  CPP=o64-clang++
+  OS=macosx
+else ifeq ($(CROSS),rpi)
+  CC=arm-linux-gnueabihf-gcc
+  CPP=arm-linux-gnueabihf-g++
+  OS=raspberrypi
 else
-  ifeq ($(CROSS),win32)
-	PREFIX=i686-w64-mingw32-
-    OS=msys
-  else
-    ifeq ($(CROSS),rpi)
-      PREFIX=arm-linux-gnueabihf-
-      OS=raspberrypi
-    else
-      $(error Unknown cross compilation selected)
-    endif
-  endif
+  $(error Unknown cross compilation selected)
 endif
 
-CC=$(PREFIX)gcc
-CPP=$(PREFIX)g++
 SPINCMP=openspin
 TOOLCC=gcc
 
