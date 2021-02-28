@@ -7,9 +7,6 @@
 SerialPropConnection::SerialPropConnection()
     : m_serialPort(NULL)
 {
-    m_loaderBaudRate = SERIAL_LOADER_BAUD_RATE;
-    m_fastLoaderBaudRate = SERIAL_FAST_LOADER_BAUD_RATE;
-    m_programBaudRate = SERIAL_PROGRAM_BAUD_RATE;
 }
 
 SerialPropConnection::~SerialPropConnection()
@@ -35,12 +32,12 @@ int SerialPropConnection::addPort(const char *port, void *data)
     return state->count < 0 || --state->count > 0;
 }
 
-int SerialPropConnection::findPorts(const char *prefix, bool check, SerialInfoList &list, int count)
+int SerialPropConnection::findPorts(bool check, SerialInfoList &list, int count)
 {
     FindState state;
     state.list = &list;
     state.count = count;
-    SerialFind(prefix, addPort, &state);
+    SerialFind(addPort, &state);
     return 0;
 }
 

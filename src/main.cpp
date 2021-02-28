@@ -16,17 +16,17 @@
 #include "wifipropconnection.h"
 #include "config.h"
 
-/* port prefix */
+/* default port name prefix if only a partial name is specified */
 #if defined(CYGWIN) || defined(WIN32) || defined(MINGW)
-  #define PORT_PREFIX ""
+  #define PORT_PREFIX "COM"
 #elif defined(LINUX)
   #ifdef RASPBERRY_PI
-    #define PORT_PREFIX "ttyAMA"
+    #define PORT_PREFIX "/dev/serial"
   #else
-    #define PORT_PREFIX "ttyUSB"
+    #define PORT_PREFIX "/dev/ttyUSB"
   #endif
 #elif defined(MACOSX)
-  #define PORT_PREFIX "cu.usbserial-"
+  #define PORT_PREFIX "/dev/cu.usbserial-"
 #else
   #define PORT_PREFIX ""
 #endif
@@ -87,8 +87,12 @@ Module names should only include the characters A-Z, a-z, 0-9, or '-' and should
 end with a '-'. They must also be less than 32 characters long.\n\
 \n\
 Variables that can be set with -D are:\n\
-  clkfreq clkmode reset baudrate rxpin txpin tvpin\n\
-  loader-baud-rate fast-loader-baud-rate program-baud-rate\n\
+\n\
+Used by the loader:\n\
+  loader reset clkfreq clkmode fast-loader-clkfreq fast-loader-clkmode\n\
+  baud-rate loader-baud-rate fast-loader-baud-rate\n\
+\n\
+Used by the SD file writer:\n\
   sdspi-do sdspi-clk sdspi-di sdspi-cs\n\
   sdspi-clr sdspi-inc sdspi-start sdspi-width spdspi-addr\n\
   sdspi-config1 sdspi-config2\n\
@@ -96,11 +100,14 @@ Variables that can be set with -D are:\n\
 Value expressions for -D can include:\n\
   rcfast rcslow xinput xtal1 xtal2 xtal3 pll1x pll2x pll4x pll8x pll16x k m mhz true false\n\
   an integer or two operands with a binary operator + - * / %% & | or unary + or -\n\
-  or a parenthesized expression.\n", VERSION, progname);
+  or a parenthesized expression.\n\
+\n\
+Examples:\n\
+  loader=rom  to use the ROM loader instead of the fast loader\n", VERSION, progname);
     promptexit(1);
 }
 
-static void ShowPorts(const char *prefix, bool check);
+static void ShowPorts(bool check);
 static void ShowWiFiModules(bool check);
 static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target);
 static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
@@ -108,6 +115,7 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
 int main(int argc, char *argv[])
 {
     BoardConfig *config, *configSettings;
+    bool useFastLoader = true;
     bool done = false;
     bool reset = false;
     bool showPorts = false;
@@ -225,24 +233,19 @@ int main(int argc, char *argv[])
                     usage(argv[0]);
 #if defined(CYGWIN) || defined(WIN32) || defined(LINUX)
                 if (isdigit((int)port[0])) {
-#if defined(CYGWIN) || defined(WIN32)
-                    static char buf[10];
-                    sprintf(buf, "COM%d", atoi(port));
-                    port = buf;
-#endif
-#if defined(LINUX)
                     static char buf[64];
-                    sprintf(buf, "/dev/%s%d", PORT_PREFIX, atoi(port));
+                    sprintf(buf, "%s%d", PORT_PREFIX, atoi(port));
                     port = buf;
+                }
 #endif
+#if defined(MACOSX) || defined(LINUX)
+                if (port[0] != '/') {
+                    static char buf[64];
+                    sprintf(buf, "%s%s", PORT_PREFIX, port);
+                    port = buf;
                 }
 #endif
 #if defined(MACOSX)
-                if (port[0] != '/') {
-                    static char buf[64];
-                    sprintf(buf, "/dev/%s-%s", PORT_PREFIX, port);
-                    port = buf;
-                }
                 if (strncmp(port, "/dev/tty.", 9) == 0) {
                     static char buf[64];
                     sprintf(buf, "/dev/cu.%s", &port[9]);
@@ -299,7 +302,7 @@ int main(int argc, char *argv[])
 
     /* show ports if requested */
     if (showPorts) {
-        ShowPorts(PORT_PREFIX, false);
+        ShowPorts(false);
         done = true;
     }
     
@@ -392,6 +395,10 @@ int main(int argc, char *argv[])
     /* override with any command line settings */
     config = MergeConfigs(config, configSettings);
     
+    /* decide whether to use the fast or rom loader */
+    if ((p = GetConfigField(config, "loader")) != NULL && strcmp(p, "rom") == 0)
+        useFastLoader = false;
+    
    /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
@@ -414,7 +421,7 @@ int main(int argc, char *argv[])
         }
         if (!port) {
             SerialInfoList ports;
-            if (SerialPropConnection::findPorts(PORT_PREFIX, true, ports) != 0) {
+            if (SerialPropConnection::findPorts(true, ports) != 0) {
                 nmessage(ERROR_SERIAL_PORT_DISCOVERY_FAILED);
                 promptexit(1);
             }
@@ -425,7 +432,10 @@ int main(int argc, char *argv[])
             info = ports.front();
             port = info.port();
         }
-        if ((sts = serialConnection->open(port)) != 0) {
+        int loaderBaudRate;
+        if (!GetNumericConfigField(config, "loader-baud-rate", &loaderBaudRate))
+            loaderBaudRate = DEF_LOADER_BAUDRATE;
+        if ((sts = serialConnection->open(port, loaderBaudRate)) != 0) {
             nmessage(ERROR_UNABLE_TO_CONNECT_TO_PORT, port);
             promptexit(1);
         }
@@ -476,15 +486,9 @@ int main(int argc, char *argv[])
         connection = wifiConnection;
     }
     
-    /* setup the baud rates */
-    int baudRate;
-    if (GetNumericConfigField(config, "loader-baud-rate", &baudRate))
-        connection->setLoaderBaudRate(baudRate);
-    if (GetNumericConfigField(config, "fast-loader-baud-rate", &baudRate))
-        connection->setFastLoaderBaudRate(baudRate);
-    if (GetNumericConfigField(config, "program-baud-rate", &baudRate))
-        connection->setProgramBaudRate(baudRate);
-
+    /* set the connection configuration */
+    connection->setConfig(config);
+    
     /* setup the reset method */
     if ((p = GetConfigField(config, "reset")) != NULL) {
         if (connection->setResetMethod(p) != 0) {
@@ -558,7 +562,7 @@ int main(int argc, char *argv[])
     /* write a file to the SD card */
     if (writeFile) {
         nmessage(INFO_WRITING_TO_SD_CARD, file);
-        if (WriteFileToSDCard(config, connection, file, file) != 0) {
+        if (WriteFileToSDCard(config, connection, file, nullptr) != 0) {
             nmessage(ERROR_FAILED_TO_WRITE_TO_SD_CARD, file);
             promptexit(1);
         }
@@ -567,15 +571,27 @@ int main(int argc, char *argv[])
     /* load a file */
     else if (file) {
         loader.setConnection(connection);
-        if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
-            nmessage(ERROR_DOWNLOAD_FAILED);
-            promptexit(1);
+        if (useFastLoader) {
+            if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
+                nmessage(ERROR_DOWNLOAD_FAILED);
+                return 1;
+            }
+        }
+        else {
+            if ((sts = loader.loadImage(image, imageSize, (LoadType)loadType)) != 0) {
+                nmessage(ERROR_DOWNLOAD_FAILED);
+                return 1;
+            }
         }
         nmessage(INFO_DOWNLOAD_SUCCESSFUL);
     }
     
     /* set the baud rate used by the program */
-    if (connection->setBaudRate(connection->programBaudRate()) != 0) {
+    int baudRate;
+    if (!GetNumericConfigField(config, "baud-rate", &baudRate)
+    &&  !GetNumericConfigField(config, "baudrate", &baudRate)) // for backwards compatibility
+        baudRate = DEF_TERMINAL_BAUDRATE;
+    if (connection->setBaudRate(baudRate) != 0) {
         nmessage(ERROR_FAILED_TO_SET_BAUD_RATE);
         promptexit(1);
     }
@@ -606,10 +622,10 @@ finish:
     return 0;
 }
 
-static void ShowPorts(const char *prefix, bool check)
+static void ShowPorts(bool check)
 {
     SerialInfoList ports;
-    if (SerialPropConnection::findPorts(prefix, check, ports) == 0) {
+    if (SerialPropConnection::findPorts(check, ports) == 0) {
         SerialInfoList::iterator i = ports.begin();
         while (i != ports.end()) {
             std::cout << i->port() << std::endl;
@@ -702,8 +718,6 @@ extern "C" {
 /* DAT header in sd_helper.spin */
 typedef struct {
     uint32_t baudrate;
-    uint8_t rxpin;
-    uint8_t txpin;
     uint8_t tvpin;
     uint8_t dopin;
     uint8_t clkpin;
@@ -728,12 +742,10 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
         hdr->clkfreq = ivalue;
     if (GetNumericConfigField(config, "clkmode", &ivalue))
         hdr->clkmode = ivalue;
-    if (GetNumericConfigField(config, "baudrate", &ivalue))
+    if (GetNumericConfigField(config, "baudrate", &ivalue)) // for backwards compatibility
         dat->baudrate = ivalue;
-    if (GetNumericConfigField(config, "rxpin", &ivalue))
-        dat->rxpin = ivalue;
-    if (GetNumericConfigField(config, "txpin", &ivalue))
-        dat->txpin = ivalue;
+    if (GetNumericConfigField(config, "baud-rate", &ivalue))
+        dat->baudrate = ivalue;
     if (GetNumericConfigField(config, "tvpin", &ivalue))
         dat->tvpin = ivalue;
 
