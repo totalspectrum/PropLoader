@@ -16,9 +16,11 @@ options:
     -f <file>       write a file to the SD card
     -i <ip-addr>    IP address of the Parallax Wi-Fi module
     -I <path>       add a directory to the include path
+    -k              prompt before exiting due to an error
     -n <name>       set the name of a Parallax Wi-Fi module
     -p <port>       serial port
     -P              show all serial ports
+    -q              during terminal display check for exit status from Propeller
     -r              run program after downloading (useful with -e)
     -R              reset the Propeller
     -s              do a serial download
