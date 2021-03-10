@@ -574,13 +574,13 @@ int main(int argc, char *argv[])
         if (useFastLoader) {
             if ((sts = loader.fastLoadImage(image, imageSize, (LoadType)loadType)) != 0) {
                 nmessage(ERROR_DOWNLOAD_FAILED);
-                return 1;
+                promptexit(1);
             }
         }
         else {
             if ((sts = loader.loadImage(image, imageSize, (LoadType)loadType)) != 0) {
                 nmessage(ERROR_DOWNLOAD_FAILED);
-                return 1;
+                promptexit(1);
             }
         }
         nmessage(INFO_DOWNLOAD_SUCCESSFUL);
