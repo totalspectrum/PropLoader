@@ -44,6 +44,7 @@ int main(int argc, char *argv[])
     FILE *ifp, *ofp;
     uint32_t *imagePtr, value;
     SpinHdr *hdr;
+    int prePendedSpin = 0;
     
     if (argc != 3) {
         printf("usage: split <infile> <outfile>\n");
@@ -86,7 +87,12 @@ int main(int argc, char *argv[])
 #endif
     
     oldSpinCodeOffset = hdr->pcurr;
-    
+    if (oldSpinCodeOffset == 0x18) {
+        // the Spin code was pre-pended instead of appended
+        // PropGCC and flexspin do that
+        prePendedSpin = 1;
+        oldSpinCodeOffset = imageSize;
+    }
     firstOverlayMarker = -1;
     imagePtr = (uint32_t *)image;
     imageOffset = 0;
@@ -107,20 +113,26 @@ int main(int argc, char *argv[])
 #endif
 
     /* fixup the spin header to remove the overlays */
-    delta = hdr->pcurr - firstOverlayMarker;
+    if (prePendedSpin) {
+        delta = hdr->dbase - firstOverlayMarker;
+    } else {
+        delta = hdr->pcurr - firstOverlayMarker;
+        hdr->pcurr -= delta;
+        hdr->xxxxx -= delta;
+        hdr->zzzzz -= delta;
+    }
     hdr->vbase -= delta;
     hdr->dbase -= delta;
-    hdr->pcurr -= delta;
     hdr->dcurr -= delta;
-    hdr->xxxxx -= delta;
-    hdr->zzzzz -= delta;
 
     /* recompute the image checksum */
     hdr->chksum = chksum = 0;
     for (imageOffset = 0; imageOffset < firstOverlayMarker; ++imageOffset)
         chksum += image[imageOffset];
-    for (imageOffset = oldSpinCodeOffset; imageOffset < imageSize; ++imageOffset)
-        chksum += image[imageOffset];
+    if (!prePendedSpin) {
+        for (imageOffset = oldSpinCodeOffset; imageOffset < imageSize; ++imageOffset)
+            chksum += image[imageOffset];
+    }
     hdr->chksum = SPIN_TARGET_CHECKSUM - chksum;
 
     /* dump the patched spin header */
@@ -129,8 +141,11 @@ int main(int argc, char *argv[])
 #endif
     
     fprintf(ofp, "static uint8_t rawLoaderImage[] = {");
-    DumpRange(ofp, image, 0, firstOverlayMarker); putc(',', ofp);
-    DumpRange(ofp, image, oldSpinCodeOffset, imageSize);
+    DumpRange(ofp, image, 0, firstOverlayMarker);
+    if (!prePendedSpin) {
+        putc(',', ofp);
+        DumpRange(ofp, image, oldSpinCodeOffset, imageSize);
+    }
     fprintf(ofp, "};\n\n");
     
     imageOffset = firstOverlayMarker + sizeof(uint32_t);
