@@ -562,7 +562,7 @@ int main(int argc, char *argv[])
     /* write a file to the SD card */
     if (writeFile) {
         nmessage(INFO_WRITING_TO_SD_CARD, file);
-        if (WriteFileToSDCard(config, connection, file, nullptr) != 0) {
+        if (WriteFileToSDCard(config, connection, file, NULL) != 0) {
             nmessage(ERROR_FAILED_TO_WRITE_TO_SD_CARD, file);
             promptexit(1);
         }
