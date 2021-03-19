@@ -34,7 +34,7 @@ static const char *infoText[] = {
 "Verifying RAM",
 "Programming EEPROM",
 "Download successful!",
-"[ Entering terminal mode. Type ESC or Control-C to exit. ]",
+"[ Entering terminal mode. Type Control-] or Control-C to exit. ]",
 "Writing '%s' to the SD card",
 "%ld bytes remaining             ",
 "%ld bytes sent                  ",

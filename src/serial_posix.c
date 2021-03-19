@@ -512,7 +512,11 @@ static void sigint_handler(int signum)
 
 #endif
 
-#define ESC     0x1b    /* escape from terminal mode */
+/* escape from terminal mode */
+/* note this is ^], *not* ESCAPE (^[) because the latter is used in
+ * cursor keys and such
+ */
+#define ESC         0x1d
 
 /**
  * simple terminal emulator

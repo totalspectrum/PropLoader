@@ -18,6 +18,9 @@
 
 /* default port name prefix if only a partial name is specified */
 #if defined(CYGWIN) || defined(WIN32) || defined(MINGW)
+# ifndef WIN32
+#  define WIN32
+# endif
   #define PORT_PREFIX "COM"
 #elif defined(LINUX)
   #ifdef RASPBERRY_PI
@@ -52,7 +55,7 @@ void promptexit(int status)
 static void usage(const char *progname)
 {
 printf("\
-PropLoader %s\n\
+PropLoader (totalspectrum branch) %s\n\
 \n\
 usage: %s [options] [<file>]\n\
 \n\
@@ -111,6 +114,9 @@ static void ShowPorts(bool check);
 static void ShowWiFiModules(bool check);
 static int WriteFileToSDCard(BoardConfig *config, PropConnection *connection, const char *path, const char *target);
 static int LoadSDHelper(BoardConfig *config, PropConnection *connection);
+#ifdef WIN32
+static void EnableVTMode();
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -399,7 +405,7 @@ int main(int argc, char *argv[])
     if ((p = GetConfigField(config, "loader")) != NULL && strcmp(p, "rom") == 0)
         useFastLoader = false;
     
-   /* make sure a file to load was specified */
+    /* make sure a file to load was specified */
     if (!done && !reset && !file && !terminalMode)
         usage(argv[0]);
         
@@ -598,6 +604,9 @@ int main(int argc, char *argv[])
     
     /* enter terminal mode */
     if (terminalMode) {
+#ifdef WIN32
+        EnableVTMode();
+#endif	
         nmessage(INFO_TERMINAL_MODE);
         
         /* open a connection to the target */
@@ -795,5 +804,29 @@ static int LoadSDHelper(BoardConfig *config, PropConnection *connection)
     return 0;
 }
 
+#ifdef WIN32
 
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
+#ifndef ENABLE_VIRTUAL_TERMINAL_INPUT
+#define ENABLE_VIRTUAL_TERMINAL_INPUT 0x0200
+#endif
 
+static void EnableVTMode()
+{
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD dwMode;
+    
+    if (hOut == INVALID_HANDLE_VALUE) return;
+    if (!GetConsoleMode(hOut, &dwMode)) return;
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+
+    if (hIn == INVALID_HANDLE_VALUE) return;
+    if (!GetConsoleMode(hIn, &dwMode)) return;
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+    SetConsoleMode(hIn, dwMode);
+}
+#endif

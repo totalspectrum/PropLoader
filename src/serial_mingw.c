@@ -316,7 +316,10 @@ void EnableVTMode()
 }
     
 /* escape from terminal mode */
-#define ESC         0x1b
+/* note this is ^], *not* ESCAPE (^[) because the latter is used in
+ * cursor keys and such
+ */
+#define ESC         0x1d
 
 /*
  * if "check_for_exit" is true, then
