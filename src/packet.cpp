@@ -51,7 +51,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #define SOH     0x01    /* start of a packet */
 #define ACK     0x06    /* positive acknowledgement */
 #define NAK     0x15    /* negative acknowledgement */
-#define ESC     0x1b    /* escape from terminal mode */
 
 #define updcrc(crc, ch) (crctab[((crc) >> 8) & 0xff] ^ ((crc) << 8) ^ (ch))
 

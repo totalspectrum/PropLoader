@@ -512,12 +512,6 @@ static void sigint_handler(int signum)
 
 #endif
 
-/* escape from terminal mode */
-/* note this is ^], *not* ESCAPE (^[) because the latter is used in
- * cursor keys and such
- */
-#define ESC         0x1d
-
 /**
  * simple terminal emulator
  */
@@ -590,7 +584,7 @@ void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode)
                 if ((cnt = read(STDIN_FILENO, buf, sizeof(buf))) > 0) {
                     int i;
                     for (i = 0; i < cnt; ++i) {
-                        if (buf[i] == ESC)
+                        if (buf[i] == ESC_TERM_0 || buf[i] == ESC_TERM_1)
                             goto done;
                     }
                     write(serial->fd, buf, cnt);

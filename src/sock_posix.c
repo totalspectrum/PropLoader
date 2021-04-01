@@ -15,6 +15,7 @@
 #endif
 
 #include "sock.h"
+#include "serial.h" /* for ESC_TERM_ macros */
 
 #ifdef __MINGW32__
 
@@ -350,12 +351,6 @@ const char *AddressToString(SOCKADDR_IN *addr)
     return inet_ntoa(addr->sin_addr);
 }
 
-/* escape from terminal mode */
-/* note this is ^], *not* ESCAPE (^[) because the latter is used in
- * cursor keys and such
- */
-#define ESC         0x1d
-
 /*
  * if "check_for_exit" is true, then
  * a sequence EXIT_CHAR 00 nn indicates that we should exit
@@ -397,7 +392,8 @@ void SocketTerminal(SOCKET sock, int check_for_exit, int pst_mode)
             }
         }
         else if (kbhit()) {
-            if ((buf[0] = getch()) == ESC)
+            buf[0] = getch();
+            if (buf[0] == ESC_TERM_0 || buf[0] == ESC_TERM_1)
                 break;
             SendSocketData(sock, buf, 1);
         }
@@ -474,7 +470,7 @@ void SocketTerminal(SOCKET sock, int check_for_exit, int pst_mode)
                 if ((cnt = read(STDIN_FILENO, buf, sizeof(buf))) > 0) {
                     int i;
                     for (i = 0; i < cnt; ++i) {
-                        if (buf[i] == ESC)
+                        if (buf[i] == ESC_TERM_0 || buf[i] == ESC_TERM_1)
                             goto done;
                     }
                     write(sock, buf, cnt);

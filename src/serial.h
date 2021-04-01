@@ -56,6 +56,12 @@ int ReceiveSerialDataExactTimeout(SERIAL *serial, void *buf, int len, int timeou
 int SerialFind(int (*check)(const char *port, void *data), void *data);
 void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode);
 
+//
+// characters which user may hit to exit from terminal mode
+//
+#define ESC_TERM_0   0x1d  /* ^] */
+#define ESC_TERM_1   26    /* ^Z */
+    
 #ifdef __cplusplus
 }
 #endif

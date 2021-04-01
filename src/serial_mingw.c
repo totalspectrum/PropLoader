@@ -315,12 +315,6 @@ void EnableVTMode()
     SetConsoleMode(hIn, dwMode);
 }
     
-/* escape from terminal mode */
-/* note this is ^], *not* ESCAPE (^[) because the latter is used in
- * cursor keys and such
- */
-#define ESC         0x1d
-
 /*
  * if "check_for_exit" is true, then
  * a sequence EXIT_CHAR 00 nn indicates that we should exit
@@ -362,7 +356,8 @@ void SerialTerminal(SERIAL *serial, int check_for_exit, int pst_mode)
             }
         }
         else if (kbhit()) {
-            if ((buf[0] = getch()) == ESC)
+            buf[0] = getch();
+            if (buf[0] == ESC_TERM_0 || buf[0] == ESC_TERM_1)
                 break;
             SendSerialData(serial, buf, 1);
         }

@@ -24,7 +24,7 @@ STATE MESSAGES
 "003-Verifying RAM"
 "004-Programming EEPROM"
 "005-Download successful!"
-"006-[ Entering terminal mode. Type ESC or Control-C to exit. ]"
+"006-[ Entering terminal mode. Type Control-] or Control-Z to exit. ]"
 "007-Writing %s to the SD card", file
 "008-%ld bytes remaining"
 "009-%ld bytes sent"
@@ -84,7 +84,7 @@ message.  Those with an "X" in the -v column only appear when the -v (verbose) o
  X   "sending readyToLaunch packet"
  X   "sending launchNow packet"
      "005-Download successful!"
-     "006-[ Entering terminal mode. Type ESC or Control-C to exit. ]"
+     "006-[ Entering terminal mode. Type Control-] or Control-Z to exit. ]"
 
 
      // Opening a telnet connection for terminal mode
